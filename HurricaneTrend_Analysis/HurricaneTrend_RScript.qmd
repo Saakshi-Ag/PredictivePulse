@@ -1,0 +1,126 @@
+---
+title: "Hurricane Trend Over Decades"
+author: "Saakshi Agarwal"
+format: pdf
+editor: visual
+fontsize: 10pt
+margin-left: 1cm
+margin-right: 1cm
+margin-top: 1cm
+margin-bottom: 1cm
+---
+
+```{r, echo=FALSE, include=FALSE}
+# Load necessary libraries
+library(tidyverse)
+library(ggplot2)
+
+# Load the dataset
+storms
+```
+
+Storms is an in-built R dataset used for this analysis. It originates from the NOAA Atlantic Hurricane database, which includes storm attributes and positions from 1975 to 2022. Year(numeric), status(categorical), and wind(numeric) variables have been used to evaluate “How have hurricanes evolved in frequency and intensity over time?”
+
+```{r, echo=FALSE, include=FALSE}
+# Data Cleaning: Focus on hurricanes with valid data for wind, pressure, and category
+hurricane_data <- storms |>
+  filter(status == "hurricane" & !is.na(wind) & !is.na(pressure) & !is.na(category))
+hurricane_data
+```
+
+```{r, echo=FALSE, include=FALSE}
+colSums(is.na(hurricane_data))
+```
+
+```{r, echo=FALSE, include=FALSE}
+# Distribution of hurricane categories over time
+category_trends <- hurricane_data |>
+  group_by(year, category) |>
+  summarise(count = n(), .groups = "drop")
+category_trends
+
+# Distribution of hurricane categories over time
+category_count <- hurricane_data |>
+  group_by(category) |>
+  summarise(count = n(), .groups = "drop")
+category_count
+
+ggplot(category_trends, aes(x = year, y = count, fill = as.factor(category))) +
+  geom_bar(stat = "identity", position = "stack") +
+  labs(
+    title = "Distribution of Hurricane Categories Over Time",
+    x = "Year",
+    y = "Count of Hurricanes",
+    fill = "Category"
+  ) +
+  theme_minimal()
+```
+
+```{r, echo=FALSE, include=FALSE}
+# Correlation between wind speed and pressure by decade
+hurricane_data <- hurricane_data |>
+  mutate(decade = floor(year / 10) * 10) # Add a 'decade' column
+
+#calculating avergae hurrican intensity over the decades
+hurrican_intensityTrend = hurricane_data |> 
+  group_by(decade) |> 
+  summarise(avg_WS = round(mean(wind, na.rm = TRUE),digit = 2), 
+            N_Storms = n(),
+            median_WS = median(wind, na.rm = TRUE),
+            IQR_WS = IQR(wind, na.rm = TRUE))
+hurrican_intensityTrend
+
+# Visualization: Average Wind Speed by Decade
+ggplot(hurrican_intensityTrend, aes(x = decade, y = avg_WS)) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(color = "red", size = 3) +
+  labs(title = "Average Storm Intensity Over Decades",
+       x = "Decade",
+       y = "Average Maximum Wind Speed (knots)") +
+  theme_minimal()
+```
+
+The number of recorded storms per decade increased significantly from `r hurrican_intensityTrend$N_Storms[1]` in the 1970s to `r hurrican_intensityTrend$N_Storms[4]` in the 2000s, as seen in Table 1. A notable drop to `r  hurrican_intensityTrend$N_Storms[6]` storms in the 2020s is likely due to incomplete data for this decade. It can also be observed that the average wind speed has increased from `r hurrican_intensityTrend$avg_WS[1]` knots in the 1970s to `r hurrican_intensityTrend$avg_WS[6]` knots in the 2020s, with a peak in wind speed averages during the 2000s**(**`r hurrican_intensityTrend$avg_WS[4]` knots).
+
+```{r, echo=FALSE, include=FALSE}
+# Add a Decade column
+hurrican_data1 <- hurricane_data |>
+  mutate(Decade = paste0(floor(year / 10) * 10, "s"))
+hurrican_data1
+
+
+# Boxplot to visualize outliers
+boxplot_hurricanes = ggplot(hurrican_data1, aes(x = Decade, y = wind)) +
+  geom_boxplot(fill = "lightblue", color = "darkblue", outlier.color = "red", outlier.shape = 16) +
+  labs(title = "Boxplot of Hurricane Wind Speeds by Decade",
+       x = "Decade",
+       y = "Wind Speed (knots)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust=0.5, size = 12) )
+```
+
+As seen in Figure 1, the median wind speed remains consistent at around 80–85 knots across all decades; the average wind speed gradually increases, driven by more frequent extreme storms. Variability, measured by the interquartile range, widened slightly from 25 knots to 30 knots in the 2000s. This indicates greater diversity in hurricane intensities, showing that even non-extreme storms have become stronger. Outliers, representing hurricanes with high wind speeds, are notably more frequent from the 2000s onward, reflecting an increase in the intensity of extreme events.
+
+In conclusion, analyzing hurricane wind speeds over the decades reveals consistency and change in storm characteristics. The findings underscore the critical need for continued monitoring, climate research, and enhanced disaster preparedness measures. As hurricanes grow in intensity and complexity, proactive strategies will be essential to safeguard regions and mitigate the risks.
+
+```         
+```
+
++--------------------------------+-------+-------+-------+-------+-------+-------+
+| ##### Decade                   | 1970s | 1980s | 1990s | 2000s | 2010s | 2020s |
++================================+=======+=======+=======+=======+=======+=======+
+| **Average Wind Speed (knots)** | 83.25 | 83.29 | 83.93 | 89.74 | 87.42 | 87.53 |
++--------------------------------+-------+-------+-------+-------+-------+-------+
+| **Number of Storms**           | 289   | 740   | 1132  | 1166  | 1084  | 392   |
++--------------------------------+-------+-------+-------+-------+-------+-------+
+| **Median Wind Speed (knots)**  | 80    | 80    | 80    | 85    | 80    | 80    |
++--------------------------------+-------+-------+-------+-------+-------+-------+
+| **IQR (knots)**                | 25    | 25    | 25    | 30    | 30    | 30    |
++--------------------------------+-------+-------+-------+-------+-------+-------+
+
+: Descriptive Analysis of Hurricane Wind Speed over Decades
+
+```{r, echo=FALSE, fig.cap= "Boxplot for Wind Speed of Hurricane Over Decades", fig.width= 5, fig.height=3}
+boxplot_hurricanes
+```
