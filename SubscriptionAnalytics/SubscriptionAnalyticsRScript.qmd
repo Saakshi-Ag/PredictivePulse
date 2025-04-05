@@ -1,0 +1,567 @@
+---
+title: "Group Project QMD"
+format: pdf
+editor: visual
+---
+
+```{r}
+#Load libraries - revamp
+#Install packages for these libraries first if required
+#install.packages("tidyverse")
+#install.packages("knitr")
+#install.packages("dplyr")
+#install.packages("patchwork")
+#install.packages("GGally")
+#install.packages("car")
+#install.packages("tidymodels")
+#install.packages("xtable")
+#install.packages("themis")
+#install.packages("kknn")
+#install.packages("rpart")
+#install.packages("rpart.plot")
+#install.packages("baguette")
+#install.packages("ranger")
+#install.packages("xgboost")
+#install.packages("lightgbm")
+#install.packages("bonsai")
+#install.packages("parallel")
+#install.packages("future")
+#install.packages("randomForest")
+
+library(tidyverse)
+library(knitr)
+library(dplyr)
+library(patchwork)
+library(GGally)
+library(car)
+library(tidymodels)
+library(xtable)
+library(themis)
+library(kknn)
+library(rpart)
+library(rpart.plot)
+library(baguette)
+library(ranger)
+library(xgboost)
+library(lightgbm)
+library(bonsai)
+library(parallel)
+library(future)
+library(randomForest)
+```
+
+#Open and prepare data
+
+```{r}
+tedandpoppy <- read.csv("tedpoppydata_final.csv")
+
+# Data Cleaning and Adding Columns (with added comments)
+tnp_data <- tedandpoppy |>
+  mutate(
+    # Recode satisfaction survey responses into "Dissatisfied" or "Satisfied"
+    satisfaction = case_when(
+      satisfaction_survey %in% c(1, 2, 3) ~ "Dissatisfied",
+      satisfaction_survey %in% c(4, 5) ~ "Satisfied",
+      satisfaction_survey == "NoResponse" ~ "NoResponse"
+    )) |>
+  mutate(
+    # Convert satisfaction to a factor with specific levels
+    satisfaction = factor(satisfaction, levels = c("NoResponse", "Dissatisfied", "Satisfied"))
+  ) |>
+  mutate(
+    # Create an engagement variable based on community activity
+    engagement = factor(
+      if_else(
+        community_posts_made >= 1 | 
+          community_topics_made >= 1 | 
+          community_profile_photo >= 1 | 
+          community_follows >= 1, 
+        1, 0
+      ), 
+      levels = c(0, 1)
+    )
+  ) |>
+  select(
+    age, support_ticket, location, subscription, engagement,
+    dog_stage_puppy, app_visits, website_visits, discounted_rate, subscription_payment_problem_last6Months, 
+    count_dogs, num_purchases, avg_purchase_value, opened_last_email, days_since_last_web_purchase, satisfaction,
+    made_instore_purchase, retained_binary
+  ) |>
+  mutate(
+    # Change retained_binary values: 0 = "Churned", 1 = "Stayed"
+    retained_binary = factor(
+      if_else(retained_binary == 0, "Churned", "Stayed"), 
+      levels = c("Churned", "Stayed")
+    ),  
+    
+    # Convert discounted_rate to a factor with two levels
+    discounted_rate = factor(discounted_rate, levels = c("FALSE", "TRUE")),
+    
+    # Clean and convert avg_purchase_value to numeric (remove dollar signs)
+    avg_purchase_value = as.numeric(gsub("\\$", "", avg_purchase_value)),
+    
+    # Clean and convert days_since_last_web_purchase to numeric
+    days_since_last_web_purchase = as.numeric(gsub(" days", "", days_since_last_web_purchase)),
+    
+    # Convert subscription_payment_problem_last6Months to a factor
+    subscription_payment_problem_last6Months = as.factor(subscription_payment_problem_last6Months),
+    
+    # Convert opened_last_email to a factor (optional)
+    opened_last_email = as.factor(opened_last_email), 
+    
+    # Convert days_since_last_web_purchase to a binary factor (0 = no recent purchase, 1 = recent purchase)
+    days_since_last_web_purchase = factor(
+      ifelse(days_since_last_web_purchase == 90, 0, 1),
+      levels = c(0, 1)
+    ),
+    
+    # Convert dog_stage_puppy to a factor
+    dog_stage_puppy = as.factor(dog_stage_puppy),
+    
+    # Convert made_instore_purchase to a factor
+    made_instore_purchase = as.factor(made_instore_purchase)
+  ) |>
+  # Sample 1000 rows from the dataset
+  slice_sample(n = 1000) #Optional slice for testing quickly
+
+tnp_data |> 
+  count(retained_binary) |> 
+  mutate(prop = n/sum(n))
+
+glimpse(tnp_data)
+```
+
+#Recipe Preparation
+
+```{r}
+#Set seed
+set.seed(25)
+
+cores <- parallel::detectCores(logical = TRUE)
+# plan(sequential)  #no parallel processing
+plan(multisession, workers = parallel::detectCores() - 1) #parallel processing
+
+#Split the data
+split_data_tnp <- initial_split(tnp_data, prop = 0.75, strata = retained_binary)
+
+#New dataframes
+tnp_training <- training(split_data_tnp)
+tnp_test <- testing(split_data_tnp)
+
+#Folds
+tnp_cv_folds <- vfold_cv(tnp_training, 
+          v = 5, 
+          strata = retained_binary) 
+
+#Recipe
+tnp_recipe <- 
+  # create recipe and specify formula
+  recipe(retained_binary ~ ., data = tnp_training)  |>  
+  # update role of ID variables  
+  #update_role(flight, time_hour, new_role = "ID") |> 
+  # pre-process dates - extract day of week and month
+  #step_date(date, features = c("dow", "month"), keep_original_cols = FALSE) |>               
+  #remove variables with NAs, skip=TRUE mean this is not applied to test data
+  step_naomit(everything(), skip = TRUE) |> 
+  # normalize variables  
+  step_normalize(all_numeric_predictors())  |> 
+  # create dummy variables for nominal predictors
+  step_dummy(all_nominal_predictors())|> 
+  # remove zero variance predictors
+  step_zv(all_predictors()) |> 
+  # Resample from the minority class, so there are equal number of on-time/late
+  step_upsample(retained_binary, over_ratio = 1)
+
+summary(tnp_recipe)
+
+glimpse(tnp_training)
+tnp_recipe |> 
+  prep() |> 
+  bake(tnp_training) |>  
+  glimpse()
+
+
+
+```
+
+#Modeling
+
+```{r}
+#Logistic Model
+tnp_lr_model <- 
+  logistic_reg() |> 
+  set_engine("glm")
+
+tnp_lr_wflow <- workflow() |> 
+                  add_model(tnp_lr_model) |> 
+                  add_recipe(tnp_recipe)
+tnp_lr_wflow
+
+#KNN Model
+tnp_knn_model <-
+  nearest_neighbor(neighbors = 4) |>
+  set_engine('kknn', seed = 25) |>
+  set_mode('classification')
+
+
+tnp_knn_wflow <- workflow() |> 
+                  add_model(tnp_knn_model) |> 
+                  add_recipe(tnp_recipe)
+
+#Random Forests Model
+tnp_rf_model <- 
+  rand_forest(trees = 1000) |> 
+  set_engine("ranger", 
+             importance = "impurity", seed = 25  #optional - provide info about variable importance
+        ) |> 
+  set_mode("classification")
+
+tnp_rf_wflow <-   workflow() |> 
+  add_model(tnp_rf_model) |> 
+  add_recipe(tnp_recipe)
+
+#XGBoost Model
+tnp_xgb_model <- 
+  boost_tree() |>
+  set_engine("xgboost", set.seed = 25 ) |>
+  set_mode("classification") 
+
+tnp_xgb_wflow <- 
+  workflow() |> 
+  add_model(tnp_xgb_model) |> 
+  add_recipe(tnp_recipe)
+
+#LightBGM Model
+tnp_lgbm_model <- 
+  boost_tree() |>
+  set_engine("lightgbm", seed = 25 ) |>
+  set_mode("classification") 
+
+tnp_lgbm_wflow <- 
+  workflow() |> 
+  add_model(tnp_lgbm_model) |> 
+  add_recipe(tnp_recipe)
+```
+
+```{r}
+#Metrics
+tnp_metrics <- metric_set(accuracy, roc_auc, sensitivity, specificity, bal_accuracy,
+                              ppv, npv)
+
+
+tnp_knn_res <- tnp_knn_wflow |>
+  fit_resamples(
+     resamples = tnp_cv_folds, 
+     metrics = tnp_metrics,
+     control = control_grid(save_pred = TRUE,
+                            parallel_over = "everything")
+    ) 
+
+
+tnp_rf_res <- tnp_rf_wflow |>
+  fit_resamples(
+     resamples = tnp_cv_folds, 
+     metrics = tnp_metrics,
+     control = control_grid(save_pred = TRUE,
+                            parallel_over = "everything")
+    ) 
+
+
+tnp_xgb_res <- tnp_xgb_wflow |>
+  fit_resamples(
+     resamples = tnp_cv_folds, 
+     metrics = tnp_metrics,
+     control = control_grid(save_pred = TRUE,
+                            parallel_over = "everything")
+    ) 
+
+
+
+
+
+tnp_lgbm_res <- tnp_lgbm_wflow |>
+  fit_resamples(
+     resamples = tnp_cv_folds, 
+     metrics = tnp_metrics,
+     control = control_grid(save_pred = TRUE,
+                            parallel_over = "everything")
+    ) 
+
+tnp_lr_res <- tnp_lr_wflow |>
+  fit_resamples(
+     resamples = tnp_cv_folds, 
+     metrics = tnp_metrics,
+     control = control_grid(save_pred = TRUE,
+                            parallel_over = "everything")
+    ) 
+
+```
+
+#Metrics and Outputs
+
+```{r}
+#Use the function `fit_resamples` to fit using $k$ fold cross validation
+tnp_lr_res <- tnp_lr_wflow |>
+  fit_resamples(
+     resamples = tnp_cv_folds, 
+     metrics = tnp_metrics,
+     control = control_grid(save_pred = TRUE,
+                            parallel_over = "everything")
+    ) 
+
+tnp_fit <-
+  tnp_lr_wflow |>
+  fit(data = tnp_training)
+
+tnp_model_outputs <- tnp_fit |>
+  extract_fit_parsnip() |>
+  tidy()
+
+tnp_model_outputs |>
+  kable()
+
+#Metrics
+tnp_lr_res |> collect_metrics(summarize = FALSE)
+#Averages across all models
+tnp_lr_res |> collect_metrics(summarize = TRUE)
+
+tnp_lr_pred <- 
+  tnp_lr_res |>
+  collect_predictions()
+
+tnp_lr_pred |>
+  conf_mat(truth = retained_binary, .pred_class) 
+
+tnp_lr_pred |>
+  group_by(id) |># id contains our folds
+  roc_curve(retained_binary, .pred_Churned, event_level = "first") |>
+  autoplot()
+
+tnp_lr_res   |> collect_metrics(summarize = TRUE)
+tnp_knn_res  |> collect_metrics(summarize = TRUE)
+tnp_rf_res   |> collect_metrics(summarize = TRUE)
+tnp_xgb_res  |> collect_metrics(summarize = TRUE)
+tnp_lgbm_res |> collect_metrics(summarize = TRUE)
+
+all_res <- 
+bind_rows(
+tnp_lr_res   |> collect_metrics(summarize = TRUE) |> mutate(model = "Logistic Regression"),
+tnp_knn_res  |> collect_metrics(summarize = TRUE) |> mutate(model = "KNN"),
+tnp_rf_res   |> collect_metrics(summarize = TRUE) |> mutate(model = "Random Forest"),
+tnp_xgb_res  |> collect_metrics(summarize = TRUE) |> mutate(model = "XGBoost"),
+tnp_lgbm_res |> collect_metrics(summarize = TRUE) |> mutate(model = "LightGBM")
+)
+
+all_pred <- 
+bind_rows(
+tnp_lr_res   |> collect_predictions()  |> mutate(model = "Logistic Regression"),
+tnp_knn_res  |> collect_predictions()  |> mutate(model = "KNN"),
+tnp_rf_res   |> collect_predictions()  |> mutate(model = "Random Forest"),
+tnp_xgb_res  |> collect_predictions()  |> mutate(model = "XGBoost"),
+tnp_lgbm_res |> collect_predictions()  |> mutate(model = "LightGBM")
+  )
+
+all_pred |> 
+  group_by(id,model) |># id contains our folds
+  roc_curve(retained_binary, .pred_Churned, event_level = "first") |>
+  autoplot(aes(col = model)) + facet_wrap(facets = vars(model)) +
+  theme(legend.position = "none") + 
+  labs(title = "ROC by fold for selected algorithms")
+
+all_res |> 
+  ggplot() + 
+  geom_col(aes(y = reorder(model, desc(model)), x = mean, fill = model)) +
+  facet_wrap(facets = vars(.metric), ncol = 3) +
+  labs(y = "model") + 
+  xlim(0,1)+
+  theme(panel.border = element_rect(colour = "black", fill=NA, linewidth=1))+
+  theme(legend.position = "none") 
+
+all_res |> 
+  group_by(.metric) |> 
+  slice_max(mean) |>  
+  select(.metric, mean, model)
+
+all_res |> filter(.metric == "roc_auc") |> slice_max(mean)
+
+final_wflow <- tnp_lgbm_wflow 
+
+final_fit <- 
+  final_wflow |>
+  last_fit(split_data_tnp,
+               metrics = tnp_metrics)
+
+final_pred <- final_fit |>
+  collect_predictions() 
+
+
+final_pred |> 
+  roc_curve(truth = retained_binary, .pred_Churned, event_level = "first") |> 
+  autoplot()
+
+final_conf <- final_pred |>
+  conf_mat(truth = retained_binary, .pred_class) 
+final_conf
+
+final_pred |> 
+  roc_auc(truth = retained_binary, .pred_Churned, event_level = "first")
+
+# LightGBM Importance
+tnp_lgbm_final_fit <- extract_fit_parsnip(final_fit$.workflow[[1]])
+lgbm_imp <- vip::vi(tnp_lgbm_final_fit, method = "model")
+
+lgbm_imp <- lgbm_imp |> mutate(Importance = round(Importance, 3))
+print(lgbm_imp)
+
+```
+
+```{r}
+#Bivariate analysis
+# Engagement vs Retention
+ggplot(tnp_data, aes(x = engagement, fill = retained_binary)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Bivariate Analysis: Engagement vs Retention",
+       x = "Engagement",
+       y = "Count",
+       fill = "Retention") +
+  theme_minimal()
+
+# Satisfaction vs Retention
+ggplot(tnp_data, aes(x = satisfaction, fill = retained_binary)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Bivariate Analysis: Satisfaction vs Retention",
+       x = "Satisfaction",
+       y = "Count",
+       fill = "Retention") +
+  theme_minimal()
+
+# Discounted Rate vs Retention
+ggplot(tnp_data, aes(x = discounted_rate, fill = retained_binary)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Bivariate Analysis: Discounted Rate vs Retention",
+       x = "Discounted Rate",
+       y = "Count",
+       fill = "Retention") +
+  scale_y_continuous(breaks = seq(0, max(table(tnp_data$discounted_rate)), by = 10000)) + # Adjust 'by' value as needed
+  theme_minimal()
+
+# Boxplot: Age vs Retention
+ggplot(tnp_data, aes(x = retained_binary, y = age)) +
+  geom_boxplot(fill = "skyblue", color = "black", outlier.colour = "red", outlier.shape = 16) +
+  labs(title = "Bivariate Analysis: Age vs Retention",
+       x = "Retention (retained_binary)",
+       y = "Age") +
+  theme_minimal()
+
+#Support Ticket vs Retention
+ggplot(tnp_data, aes(x = support_ticket, fill = retained_binary)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Bivariate Analysis: Support Ticket vs Retention",
+       x = "Support Ticket",
+       y = "Count",
+       fill = "Retention") +
+  theme_minimal()
+
+#location Vs Retention
+ggplot(tnp_data, aes(x = location, fill = retained_binary)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Bivariate Analysis: Location vs Retention",
+       x = "Location",
+       y = "Count",
+       fill = "Retention") +
+  theme_minimal()
+
+#Subscription Vs Retention
+ggplot(tnp_data, aes(x = subscription, fill = retained_binary)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Bivariate Analysis: Subscription vs Retention",
+       x = "Subscription",
+       y = "Count",
+       fill = "Retention") +
+  theme_minimal()
+
+#DogStagePuppy Vs Retention
+ggplot(tnp_data, aes(x = dog_stage_puppy, fill = retained_binary)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Bivariate Analysis: Dog Stage (Puppy) vs Retention",
+       x = "Dog Stage (Puppy)",
+       y = "Count",
+       fill = "Retention") +
+  theme_minimal()
+
+#Subscription Payment Problem vs Retention
+ggplot(tnp_data, aes(x = subscription_payment_problem_last6Months, fill = retained_binary)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Bivariate Analysis: Subscription Payment Problem vs Retention",
+       x = "Subscription Payment Problem (Last 6 Months)",
+       y = "Count",
+       fill = "Retention") +
+  theme_minimal()
+
+#Opened Last Email vs Retention
+ggplot(tnp_data, aes(x = opened_last_email, fill = retained_binary)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Bivariate Analysis: Opened Last Email vs Retention",
+       x = "Opened Last Email",
+       y = "Count",
+       fill = "Retention") +
+  theme_minimal()
+
+#Made In-Store Purchase vs Retention
+ggplot(tnp_data, aes(x = made_instore_purchase, fill = retained_binary)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Bivariate Analysis: Made In-Store Purchase vs Retention",
+       x = "Made In-Store Purchase",
+       y = "Count",
+       fill = "Retention") +
+  theme_minimal()
+
+#Days Since Last Web Purchase vs Retention
+ggplot(tnp_data, aes(x  = days_since_last_web_purchase)) +
+  geom_bar(fill = "lightblue", outlier.colour = "red") +
+  labs(title = "Bivariate Analysis: Days Since Last Web Purchase vs Retention",
+       y = "Count",
+       x = "Days Since Last Web Purchase") +
+  theme_minimal()
+
+# App Visits vs Retention
+ggplot(tnp_data, aes(x = retained_binary, y = app_visits)) +
+  geom_boxplot(fill = "lightblue", outlier.colour = "red") +
+  labs(title = "Bivariate Analysis: App Visits vs Retention",
+       x = "Retention",
+       y = "App Visits") +
+  theme_minimal()
+
+# Website Visits vs Retention
+ggplot(tnp_data, aes(x = retained_binary, y = website_visits)) +
+  geom_boxplot(fill = "lightblue", outlier.colour = "red") +
+  labs(title = "Bivariate Analysis: Website Visits vs Retention",
+       x = "Retention",
+       y = "Website Visits") +
+  theme_minimal()
+
+#Count of Dogs vs Retention
+ggplot(tnp_data, aes(x = retained_binary, y = count_dogs)) +
+  geom_boxplot(fill = "lightblue", outlier.colour = "red") +
+  labs(title = "Bivariate Analysis: Count of Dogs vs Retention",
+       x = "Retention",
+       y = "Count of Dogs") +
+  theme_minimal()
+
+#Number of Purchases vs Retention
+ggplot(tnp_data, aes(x = retained_binary, y = num_purchases)) +
+  geom_boxplot(fill = "lightblue", outlier.colour = "red") +
+  labs(title = "Bivariate Analysis: Number of Purchases vs Retention",
+       x = "Retention",
+       y = "Number of Purchases") +
+  theme_minimal()
+
+#Average Purchase Value vs Retention
+ggplot(tnp_data, aes(x = retained_binary, y = avg_purchase_value)) +
+  geom_boxplot(fill = "lightblue", outlier.colour = "red") +
+  labs(title = "Bivariate Analysis: Average Purchase Value vs Retention",
+       x = "Retention",
+       y = "Average Purchase Value") +
+  theme_minimal()
+
+```
