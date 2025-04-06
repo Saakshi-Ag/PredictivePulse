@@ -1,0 +1,245 @@
+---
+title: "Analysis of Paperless Banking Enrollment at Sandhills Bank"
+author: "Saakshi Agarwal"
+format: 
+  pdf: 
+    geometry:
+      - top=18mm
+      - left=18mm
+      - right=18mm
+      - bottom=22mm
+      - heightrounded
+    colorlinks: true
+papersize: a4
+fontsize: 11pt    
+mainfont: Latin Modern Roman
+sansfont: Latin Modern Roman
+include-in-header: 
+      text: |
+        \usepackage{titling}
+        \setlength{\droptitle}{-20mm}   % move title up
+        \pretitle{\begin{center}\large\bfseries }
+        \posttitle{\end{center}  \vspace*{-0.5cm}}        % set format of title
+        \preauthor{\begin{center}}
+        \postauthor{\end{center}\ignorespacesafterend \vspace*{-2cm}}
+---
+
+```{r}
+#| label: setup
+#| echo: false
+#| results: hide
+#| message: false
+#| warning: false
+# install packages
+library(knitr)
+library(tidyverse)
+library(readxl)
+library(GGally)
+library(tinytex)
+library(dplyr)
+library(skimr)
+library(tidymodels)
+
+
+# set default chunk options
+# options can be overridden within individual chunks
+opts_chunk$set(fig.align='center', 
+               out.width="50%",
+               message = FALSE,
+               echo = FALSE,
+               results = "hide",
+               eval = TRUE)
+
+# set options for printing
+options(width = 70,
+        pillar.print_min = 6,
+        pillar.print_max = 10
+        )
+
+
+# update theme for all plots (optional)
+theme_update(text = element_text(size = 16)
+             #, plot.background = element_rect(colour = "grey", fill=NA, linewidth=0) # add border around plot to make it more visible
+             , panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
+             , panel.background = element_rect(fill = "white")
+           )
+```
+
+This study analyzes the relationship between customer balance and paperless banking enrollment at Sandhills Bank. The bank aims to increase the adoption of paperless banking and wants to predict which customers are most likely to enroll. The dataset consists of 1,000 observations, and balance is used as the independent variable, as financial engagement is expected to influence enrollment decisions.
+
+```{r, include=FALSE}
+#| echo: false
+#| label: read_data
+
+data1 = read_csv("C:\\Users\\saaks\\Downloads\\plains.csv")
+data1
+
+colSums(is.na(data1))
+summary(data1)
+table(data1$Enroll)
+
+
+# Density plot for Age
+ggplot(data = data1, aes(x = Age, fill = factor(Enroll))) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Density Plot of Age by Enrollment Status",
+       x = "Age", fill = "Enrolled (0 = No, 1 = Yes)") +
+  theme_minimal()
+
+# Density plot for Balance
+ggplot(data = data1, aes(x = Balance, fill = factor(Enroll))) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Density Plot of Balance by Enrollment Status",
+       x = "Balance", fill = "Enrolled (0 = No, 1 = Yes)") +
+  theme_minimal()
+```
+
+The mean balance (\$1,122) and median balance (\$1,045) for enrolled customers are higher than for non enrolled customers (mean: \$510.7, median: \$507), as seen in Table 1. @fig-boxplot shows that the interquartile range (IQR) is much larger for enrolled customers, indicating a wider spending distribution. It can also be observed that some people who are not enrolled have a high balance. The minimum balance for enrolled customers (\$365) is more than double that of non-enrolled customers (\$76), suggesting that customers with lower balances are less likely to transition to paperless banking.
+
+| Enroll | Min (Dollar) | Q1 (Dollar) | Median (Dollar) | Mean (Dollar) | Q3 (Dollar) | Max (Dollar) |
+|-----------|-----------|-----------|-----------|-----------|-----------|-----------|
+| **Yes** | 365 | 898 | 1045 | 1122 | 1307 | 2726 |
+| **No** | 76 | 365 | 507 | 510.7 | 638.5 | 2498 |
+
+: Descriptive analysis for Balance (Dollars) based on being Enrolled
+
+```{r, echo=FALSE}
+#| label: fig-boxplot
+#| fig-cap:  Boxplot for Balance based on Enrollement status
+#| fig.width: 6
+#| fig.height: 4
+#| out.width: 90%
+
+
+# Boxplot for Balance
+ggplot(data = data1, aes(x = factor(Enroll), y = Balance)) +
+  geom_boxplot(fill = "lightgreen") +
+  labs(x = "Enrolled", y = "Balance (Dollar)") +
+  theme_minimal()
+
+#summary for balance based on enroll status
+by(data1$Balance,data1$Enroll, summary)
+
+
+data1$Enroll = factor(data1$Enroll,
+                   levels = c( "No", "Yes"))
+data1
+```
+
+A logistic regression model is used to predict whether a customer enrolls in paperless banking. As seen in Table 2, for every \$1 increase in balance, the odds of enrolling are 1.009 times higher than the odds of not being enrolled. In other words, the odds of being enrolled increase by 0.9%. As the p-value is below 0.001, it confirms that balance is statistically significant for predicting enrollment. For example, customer with balance of \$1,500 has 99.8% probability of enrolling. @fid-sigmoid shows that the probability of enrollment remains low for small balances but increases sharply around \$1,000. It approaches a probability of 1 for balances nearly above \$1,500, indicating that high-balance customers are almost certain to enroll.
+
+| Coefficient | Estimate | Odds Ratio | Std_Error | P-Value |
+|--------------|-----------|----------------------|--------------|--------------|
+| **y = Intercept** | -7.98 | 0.000342 (e\^-7.98) | 0.713 | 4.42e-29 (\<0.001) |
+| **x1 = Balance (Dollar)** | 0.00944 | 1.009485 (e\^0.00944) | 0.00 | 8.74e-27 (\<0.001) |
+
+: Summary of Logistic Regression Model
+
+```{r, echo=FALSE}
+#| label: fig-sigmoid
+#| fig-cap:  Probabilty of Enrolling based On Balance
+#| fig.width: 6
+#| fig.height: 4
+#| out.width: 90%
+
+#Training and testing model
+
+#Training and testing model
+set.seed(1)
+
+# Split 3/4 of the data into the training set
+data_split <- initial_split(data1, prop = 7/10, strata="Enroll")
+# Create data frames for the two sets:
+train_data <- training(data_split)
+test_data <- testing(data_split)
+
+enroll_rec <-
+  # create recipe and specify formula
+  recipe(Enroll ~ Balance, data = train_data)
+
+#logistics regression
+lr_mod <-
+  logistic_reg() |>
+  set_engine("glm")
+
+#creating workflow, model+recipe
+
+enroll_wflow <- workflow() |>
+  add_model(lr_mod) |>
+  add_recipe(enroll_rec)
+
+#fit model using training data
+enroll_fit <-
+  enroll_wflow |>
+  fit(data = train_data)
+
+enroll_fit |>
+  extract_fit_parsnip() |>
+  tidy()
+
+enroll_fit
+
+#predicting the probability
+newdata = tibble(Balance = c(1500))
+predict(enroll_fit, newdata , type = "prob")
+predict(enroll_fit, newdata , type = "class")
+
+enroll_aug <-
+  augment(enroll_fit, test_data)
+
+# Inspect results (selected columns only):
+enroll_aug |>
+  select(Customer, Balance, Age, Enroll, .pred_class, .pred_Yes, .pred_No)
+
+
+#Sigmoid plot
+ggplot()+geom_line(aes(x=Balance, y=.pred_Yes),
+                   col = "red", data= enroll_aug)+
+  labs( x = "Balance (Dollar)", y = "Probabilty of being Enrolled") +
+  theme_minimal()
+```
+
+The model correctly predicted 328 customers who would not enroll (True Negative) and 133 who would enroll (True Positive). However, 28 enrolled customers were misclassified as non-enrolled (False Negative), and 12 non-enrolled customers were incorrectly classified as enrolled (False Positive) \[Table 3\]. The model's overall accuracy is 92%, suggesting that the model correctly predicts most cases. It correctly identifies 96.5% of enrolled customers (sensitivity) and 82.6% of non-enrolled customers (specificity). Of all customers predicted to enroll, 91.7% actually are enrolled (ppv), while of all predicted non-enrolled, 92.1% did not enroll (npv). The ROC AUC score is 0.973, and the curve is well above the diagonal [@fig-ROC], confirming that the model effectively distinguishes between enrolled and non-enrolled customers.
+
+|                     | Actual: No | Actual: Yes |
+|---------------------|------------|-------------|
+| **Prediction: No**  | 328        | 28          |
+| **Prediction: Yes** | 12         | 133         |
+
+: Confusion Matrix for Logistic Regression Model
+
+| Metric                          | Estimate |
+|---------------------------------|----------|
+| Accuracy                        | 0.920    |
+| Sensitivity                     | 0.965    |
+| Specificity                     | 0.826    |
+| Positive Predictive Value (ppv) | 0.921    |
+| Negative Predictive Value (npv) | 0.917    |
+
+: Summary of Classification Metric
+
+```{r, echo=FALSE, include=FALSE}
+
+#confusion matrix
+enroll_conf <- enroll_aug |>
+  conf_mat(truth = Enroll, estimate = .pred_class, event_level = "second")
+enroll_conf
+```
+
+```{r, echo=FALSE}
+#| label: fig-ROC
+#| fig-cap: "ROC Curve for Model Accuracy" 
+#| fig.height: 8
+#| fig.width: 12
+#| out-width: 90%
+
+summary(enroll_conf)
+
+#roc cure
+enroll_aug |> roc_auc(truth = Enroll, .pred_Yes, event_level = "second") |>pull(.estimate)
+
+enroll_aug |> roc_curve(truth = Enroll, .pred_Yes, event_level = "second") |> autoplot() + 
+  annotate("text", x = 0.10, y = 1, label = "AUC Score 0.973", color = "blue", size = 6)
+```
+
+For Sandhills Bank, this analysis provides a clear advantage in targeting non-paperless customers with high balances for promotional efforts. By focusing marketing campaigns on the 200 non-paperless customers, especially those with balances above \$1000, the bank can increase adoption rates, improve efficiency, and enhance customer engagement.
