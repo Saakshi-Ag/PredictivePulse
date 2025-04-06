@@ -1,0 +1,216 @@
+---
+title: "Greenhouse Emissions: Influence of Methane and CO₂"
+author: "Saakshi Agarwal"
+format: 
+  pdf: 
+    geometry:
+      - top=18mm
+      - left=18mm
+      - right=18mm
+      - bottom=22mm
+      - heightrounded
+    colorlinks: true
+papersize: a4
+fontsize: 11pt    
+mainfont: Latin Modern Roman
+sansfont: Latin Modern Roman
+include-in-header: 
+      text: |
+        \usepackage{titling}
+        \setlength{\droptitle}{-20mm}   % move title up
+        \pretitle{\begin{center}\large\bfseries }
+        \posttitle{\end{center}  \vspace*{-0.5cm}}        % set format of title
+        \preauthor{\begin{center}}
+        \postauthor{\end{center}\ignorespacesafterend \vspace*{-2cm}}
+---
+
+This analysis explores the relationship between total greenhouse gas emissions(GHG) (kt of CO2-eq) and key environmental contributors. Data from dataset wdi_2020 which have 217 observations, and CO2 emissions(tons per capita) and methane emissions(METH) (kt of CO2-eq) are chosen as independent variables due to their significant role in climate change.
+
+```{r}
+#| label: setup
+#| echo: false
+#| results: hide
+#| message: false
+#| warning: false
+# install packages
+library(knitr)
+library(tidyverse)
+library(readxl)
+library(GGally)
+library(tinytex)
+library(dplyr)
+
+
+# set default chunk options
+# options can be overridden within individual chunks
+opts_chunk$set(fig.align='center', 
+               out.width="50%",
+               message = FALSE,
+               echo = FALSE,
+               results = "hide",
+               eval = TRUE)
+
+# set options for printing
+options(width = 70,
+        pillar.print_min = 6,
+        pillar.print_max = 10
+        )
+
+
+# update theme for all plots (optional)
+theme_update(text = element_text(size = 16)
+             #, plot.background = element_rect(colour = "grey", fill=NA, linewidth=0) # add border around plot to make it more visible
+             , panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
+             , panel.background = element_rect(fill = "white")
+           )
+```
+
+```{r, include=FALSE}
+#| echo: false
+#| label: read_data
+
+#reading the csv file
+data = read.csv("C:\\Users\\saaks\\Downloads\\wdi_2020.csv")
+
+#renaming it for better variable name
+wdi <- data %>%
+  rename(
+    Total_GDP = NY.GDP.MKTP.CD,
+    GDP_Capita = NY.GDP.PCAP.CD,
+    Working_Population = SP.POP.1564.TO.ZS,
+    Children_Population = SP.POP.0014.TO.ZS,
+    Elderly_Population = SP.POP.65UP.TO.ZS,
+    Female_Population = SP.POP.TOTL.FE.ZS,
+    Male_Population = SP.POP.TOTL.MA.ZS,
+    Total_Population = SP.POP.TOTL,
+    Poverty_Gap_Low_Income = SI.POV.GAPS,
+    Poverty_Gap_Mid_Income = SI.POV.UMIC.GP,
+    Measles_Immunization = SH.IMM.MEAS,
+    Diphtheria_Immunization = SH.IMM.IDPT,
+    Women_in_Parliament = SG.GEN.PARL.ZS,
+    CO2_Emissions = EN.ATM.CO2E.PC,
+    Methane = EN.ATM.METH.KT.CE,
+    Greenhouse_Gas= EN.ATM.GHGT.KT.CE,
+    Access_to_Clean_Water = SH.H2O.SMDW.ZS,
+    Urban_Clean_Water_Access = SH.H2O.SMDW.UR.ZS,
+    Rural_Basic_Water = SH.H2O.BASW.RU.ZS
+  )
+glimpse(wdi)
+
+#checking columns and NA values
+colSums(is.na(wdi))
+
+#creating a new dataset for 3 variables
+GHG =  wdi |> select(Greenhouse_Gas,CO2_Emissions,Methane)
+GHG = na.omit(GHG)
+#removing null values
+colSums(is.na(GHG))
+
+```
+
+The raw data for GHG, CO2, and METH exhibited skewness, likely due to the wide range of values across different countries. Logarithmic transformation was applied to reduce heteroscedasticity and make the distribution closer to normal as shown in @fig-correlation.  A strong positive correlation can be observed between GHG and METH with r = 0.96 and a weak positive correlation with CO2 with r = 0.26. These correlations justify including CO2 and methane emissions as independent variables in the regression model.
+
+```{r, echo=FALSE}
+#| label: fig-correlation
+#| fig-cap:  Data correlation and Distribution
+#| fig.width: 6
+#| fig.height: 4
+#| out.width: 90%
+#| fig-subcap:
+#|   - "Original Data"
+#|   - "Log Transformed Data" 
+#| layout-ncol: 2
+
+#checking correlation between them
+C1 = cor(GHG$Greenhouse_Gas, GHG$Methane)
+C2 = cor(GHG$Greenhouse_Gas, GHG$CO2_Emissions)
+C3 = cor(GHG$CO2_Emissions, GHG$Methane)
+
+ggpairs(GHG, lower = list(combo = wrap("facethist", binwidth = 5)))+
+  theme(axis.text.x = element_text(size = 7),
+       axis.text.y = element_text(size = 8),
+       strip.text = element_text(size = 8))
+
+#converting GHG, METH and CO2 in log values and combing them in a dataframe
+GH2= GHG |> mutate(logGH = log10(GHG$Greenhouse_Gas),logME = log10(GHG$Methane), 
+                   logCO = log10(GHG$CO2_Emissions) ) |> 
+  select(logGH, logCO, logME)
+
+
+#checking the correlation between independent and dependent variable
+ggpairs(GH2)+theme(axis.text.x = element_text(size = 12),
+                        axis.text.y = element_text(size = 8),   
+                        strip.text = element_text(size = 8))
+```
+
+To predict GHG, a multiple regression model was used; a summary can be seen in Table 1. The equation is y = 0.82 + 0.31x1 + 0.92x2, indicating that an increase in 1 unit of CO2 can contribute upto a 31.6% rise in GHG, keeping METH constant. Similarly, an increase of 1 unit in METH can contribute upto 92.2% rise in GHG, keeping CO2 constant. The adjusted R\^2(0.9515) suggests that CO2 and METH are highly predictive of total GHG, with minimal unexplained variability. A high F-value suggests that the combined effect of CO2 and METH on total GHG is statistically significant, with a p-value \< 0.001 indicating that the model is highly significant.
+
+```{r, echo=FALSE, include = FALSE}
+#Running regression for the variables
+GH_lm = lm(logGH~logCO+logME, data = GH2)
+summary(GH_lm)
+```
+
+| Coefficient                               | Estimate  | Std_Error |
+|-------------------------------------------|-----------|-----------|
+| y = Intercept                             | 0.824     | 0.06      |
+| x1 = Log CO2 per Capita (tons per capita) | 0.316     | 0.02      |
+| x2 = Log METH (kt of CO2 eq)              | 0.921     | 0.01      |
+| Adjusted R-square                         | 0.805     |           |
+| F-Value                                   | 1863      |           |
+| P-Value Model                             | p\< 0.001 |           |
+
+: Summary of Multiple Linear Regression Model
+
+Model assumptions were validated, as the residual vs. fitted plot does not show a pattern, suggesting homoscedasticity and the histogram of residuals shows a normal distribution, indicating that residuals are approximately normally distributed, as seen in @fig-residuals-plots. The scatter plot shows a random distribution of residuals, suggesting that CO2 and METH have a linear relationship with GHG, supporting the assumption of linearity, as seen in @fig-residuals-plots-variable. The collinearity between CO2 and METH is 0.06, which eliminates multicollinearity.
+
+.
+
+```{r, echo=FALSE}
+#| label: fig-residuals-plots
+#| fig-cap: "Residual plots for the multiple regression model" 
+#| fig.height: 4
+#| fig.width: 12
+#| out-width: 90%
+
+#Assumption checking
+# Fitted values vs residuals
+q1 <- ggplot(GH_lm, aes(x = .fitted, y = .resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  labs(title='Residual vs. Fitted Values Plot',
+       x='Fitted Values', y='Residuals')+theme_minimal()
+
+# create new tibble with original data and residuals
+GH_lm <- cbind(GH2, residuals = GH_lm$residuals)
+
+# Distribution of residuals
+q2 <- ggplot(GH_lm) +
+  geom_histogram(aes(x = residuals), bins=5) +
+  labs(x = "Residuals")+theme_minimal()
+
+cowplot::plot_grid(q1, q2)+theme_minimal()
+```
+
+```{r, echo=FALSE}
+#| label: fig-residuals-plots-variable
+#| fig-cap: "Residual plots for each independent variable" 
+#| fig.height: 4
+#| fig.width: 12
+#| out-width: 90%
+
+# Independent Variable vs Residuals - plot
+q3 <- ggplot(GH_lm, aes(x = logME , y = residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  labs(x= "Methane Emission (kt CO2 eq)",y='Residuals')+theme_minimal()
+
+q4 <- ggplot(GH_lm, aes(x = logCO, y = residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+    labs(x= "CO2 emission per capita (tons per capita)",y='Residuals')+theme_minimal()
+
+ cowplot::plot_grid( q3, q4)+theme_minimal()
+```
+
+In conclusion, these findings underscore the critical role of reducing methane and CO₂ emissions in mitigating climate change. Targeted policies addressing methane reduction, like waste management, fossil fuel extraction, and CO₂ reduction by using renewable energy, could significantly impact. These will reduce overall greenhouse gas levels and mitigate long-term environmental risks.
