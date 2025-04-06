@@ -63,9 +63,9 @@ These metrics provide a comprehensive understanding of how well the models perfo
 ## 5. Cross-Validation
 
 10-Fold Cross-Validation was used to evaluate the models:
-	1.	Data Splitting: The dataset was divided into 10 equal folds. Each fold was used once as a validation set while the remaining 9 folds were used for training.
-	2.	Stratification: Stratified sampling was applied to maintain a consistent distribution of churned and non-churned customers in both the training and validation sets.
-	3.	Performance Evaluation: Each model was evaluated on every fold, and the results were averaged to provide a final assessment of model performance.
+1.	Data Splitting: The dataset was divided into 10 equal folds. Each fold was used once as a validation set while the remaining 9 folds were used for training.
+2.	Stratification: Stratified sampling was applied to maintain a consistent distribution of churned and non-churned customers in both the training and validation sets.
+ 3.	Performance Evaluation: Each model was evaluated on every fold, and the results were averaged to provide a final assessment of model performance.
 
 This method ensures that the evaluation results are reliable and less biased, as each data point is used for both training and validation.
 
