@@ -87,6 +87,7 @@ The following table shows the average performance metrics for each model across 
 •	LightGBM emerged as the best-performing model with the highest accuracy, AUC, and specificity, followed closely by XGBoost.
 •	Random Forest also performed well, offering a balance of precision and recall, making it a good choice for handling imbalanced classes.
 •	Logistic Regression and k-NN had relatively lower performance, particularly in terms of precision and AUC, suggesting they may not be as effective for this particular classification task.
+
 The LightGBM model effectively predicts voter indecision, with high recall (91.5%) and precision (97.7%), making it ideal for identifying undecided voters. This models are recommended for deployment in real-world scenarios.
 
 
