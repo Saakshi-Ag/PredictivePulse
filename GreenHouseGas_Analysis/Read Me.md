@@ -1,4 +1,4 @@
-## GreenhouseEmissions: InfluenceofMethaneandCO￿
+## Greenhouse Gas Emissions: Influence of Methane and CO2
 
 ### Author: Saakshi Agarwal
 
