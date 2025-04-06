@@ -120,11 +120,10 @@ Installation and Usage
 
 
 3.	Load the dataset:
+   sandhills <- read_csv("path_to_Sandhills.csv")
 
-               sandhills <- read_csv("path_to_Sandhills.csv")
 
-
-4.	Run the analysis script to generate visualizations and model evaluations.
+5.	Run the analysis script to generate visualizations and model evaluations.
 
 ## License
 
