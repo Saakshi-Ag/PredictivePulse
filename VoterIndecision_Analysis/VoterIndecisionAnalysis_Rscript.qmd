@@ -1,0 +1,487 @@
+---
+title: "Analyzing Voter Indecision in an Election Campaign"
+author: "Saakshi Agarwal"
+format: 
+  pdf: 
+    geometry:
+      - top=18mm
+      - left=18mm
+      - right=18mm
+      - bottom=22mm
+      - heightrounded
+    colorlinks: true
+papersize: a4
+fontsize: 11pt    
+mainfont: Latin Modern Roman
+sansfont: Latin Modern Roman
+include-in-header: 
+      text: |
+        \usepackage{titling}
+        \setlength{\droptitle}{-20mm}   % move title up
+        \pretitle{\begin{center}\large\bfseries }
+        \posttitle{\end{center}  \vspace*{-1cm}}        % set format of title
+        \preauthor{\begin{center}}
+        \postauthor{\end{center}\ignorespacesafterend \vspace*{-2cm}}
+---
+
+```{r}
+#| label: setup
+#| echo: false
+#| results: hide
+#| message: false
+#| warning: false
+# install packages
+library(tidyverse)
+library(knitr)
+library(dplyr)
+library(patchwork)
+library(GGally)
+library(tidymodels)
+library(xtable)
+library(themis)
+library(kknn)
+library(rpart)
+library(rpart.plot)
+library(baguette)
+library(ranger)
+library(xgboost)
+library(lightgbm)
+library(bonsai)
+library(parallel)
+library(future)
+library(ggplot2)
+
+# set prefix for figures that are created
+figprefix = paste('Rfigs/', "BUSINFO704_example_quarto", sep="")
+
+# set default chunk options
+# options can be overridden within individual chunks
+opts_chunk$set(fig.path=figprefix,
+               fig.align='center', 
+               fig.show='hold', 
+               out.width="50%",
+               message = FALSE,
+               echo = FALSE,
+               results = "hide",
+               eval = TRUE)
+
+# set options for printing
+options(width = 70,
+        pillar.print_min = 6,
+        pillar.print_max = 10
+        )
+
+
+# update theme for all plots (optional)
+theme_update(text = element_text(size = 16)
+             #, plot.background = element_rect(colour = "grey", fill=NA, linewidth=0) # add border around plot to make it more visible
+             , panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
+             , panel.background = element_rect(fill = "white")
+           )
+```
+
+This report examines voter indecision using a dataset of approximately 10,000 observations containing voter attributes related to demographics, engagement, and political behavior. The key variables influencing indecision are Gender, Education, and Religious Affiliation, as gender dynamics impact decision-making, education correlates with political engagement, and religious affiliation strongly predicts voting behavior.
+
+```{r}
+#| echo: false
+#Open and prepare data
+data <- read.csv("C:\\Users\\saaks\\Downloads\\blueorred.csv")
+
+
+#Recipe Preparation
+#Set seed
+set.seed(15)
+
+cores <- parallel::detectCores(logical = TRUE)
+# plan(sequential)  #no parallel processing
+plan(multisession, workers = parallel::detectCores() - 1) #parallel processing
+
+data$Vote<-factor(data$Vote,levels = c("decided","undecided"))
+data$Gender <- factor(data$Gender)
+data$Religious <- factor(data$Religious)
+str(data)
+
+voter = data |> select(Religious, Education,Gender, Vote)
+```
+
+@fig-bivariate-1 show that among 4014 undecided voters, with 3140 being female, indicating potential differences in political engagement across genders. @fig-bivariate-2 shows that among 4980 non-regular religious 2772 of them are undecided, suggesting that religious affiliation strengthens political convictions. @fig-bivariate-3 and Table 1 confirms that undecided voters tend to have slightly higher education levels than decided voters. The median education level for undecided voters is 16 years, compared to 15 years for decided voters, with a slightly higher mean. This trend suggests that higher-educated individuals may take longer to evaluate their choices before deciding.
+
+```{r, echo=FALSE}
+#| label: fig-bivariate
+#| fig-cap: Bivariate analysis for Vote againts Key Variables
+#| fig.width: 8
+#| fig.height: 7
+#| out.width: 90%
+#| fig-subcap:
+#|   - "Gender by Vote status"
+#|   - "Religious by Vote status"
+#|   - "Distribution of Education by Vote Status" 
+#| layout-ncol: 2
+
+#Barplot for Gender vs Vote
+ggplot(data = voter, aes(x = Gender, fill = Vote)) +
+  geom_bar(position = "dodge") + # creates side-by-side bars
+  labs(
+       x = "Gender",
+       y = "Count",
+       fill = "Vote Status") +
+  theme_minimal()+ theme(
+    axis.title.x = element_text(size = 15, face = "bold"),  # X-axis label size
+    axis.title.y = element_text(size = 15, face = "bold"),  # Y-axis label size
+    legend.title = element_text(size = 15, face = "bold"),  # Fill label size
+    legend.text = element_text(size = 16),  # Legend values size
+    axis.text.x = element_text(size = 14, face = "bold"),  # X-axis tick label size
+    axis.text.y = element_text(size = 14, face = "bold")   # Y-axis tick label size
+  )
+
+#barPlot for religious Vs Vote
+ggplot(data = voter, aes(x = factor(Religious, levels = c(0, 1), labels = c("Not Regular", "Regular")), fill = Vote)) +
+  geom_bar(position = "dodge") + # creates side-by-side bars
+  labs(
+       x = "Religious",
+       y = "Count",
+       fill = "Vote Status") +
+  theme_minimal()+ theme(
+    axis.title.x = element_text(size = 15, face = "bold"),  # X-axis label size
+    axis.title.y = element_text(size = 15, face = "bold"),  # Y-axis label size
+    legend.title = element_text(size = 15, face = "bold"),  # Fill label size
+    legend.text = element_text(size = 16),  # Legend values size
+    axis.text.x = element_text(size = 14, face = "bold"),  # X-axis tick label size
+    axis.text.y = element_text(size = 14, face = "bold")   # Y-axis tick label size
+  )
+
+#Boxplot for Education Vs Vote
+ggplot(data = voter, aes(x  = Vote, y= Education ,fill = Vote)) +
+  geom_boxplot() + 
+  labs(
+       x = "Vote",
+       y = "Education in years",
+       fill = "Vote Status") +
+  theme_minimal()+ theme(
+    axis.title.x = element_text(size = 15, face = "bold"),  # X-axis label size
+    axis.title.y = element_text(size = 15, face = "bold"),  # Y-axis label size
+    legend.title = element_text(size = 15, face = "bold"),  # Fill label size
+    legend.text = element_text(size = 16),  # Legend values size
+    axis.text.x = element_text(size = 14, face = "bold"),  # X-axis tick label size
+    axis.text.y = element_text(size = 14, face = "bold")   # Y-axis tick label size
+  )
+
+
+#finfing descriptive summary for Education based on voter
+by(voter$Education, voter$Vote, summary)
+
+#mapping tables for categorial variables
+table(voter$Vote)
+
+table(voter$Religious)
+Religion_counts <- voter |> group_by(Vote, Religious) |>
+  summarise(count = n(), .groups = "drop")|> 
+  arrange(Religious)
+Religion_counts 
+
+table(voter$Gender)
+Gender_counts <- voter |> group_by(Vote, Gender) |>
+  summarise(count = n(), .groups = "drop")|> 
+  arrange(Gender)
+Gender_counts 
+
+```
+
+| Vote | Mean (years) | Median (years) | Q1 (years) | Q3 (years) | Min (years) | Max (years) |
+|-----------|-----------|-----------|-----------|-----------|-----------|-----------|
+| Decided | 14.05 | 15 | 8 | 18 | 8 | 20 |
+| Undecided | 16.62 | 16 | 8 | 18 | 8 | 20 |
+
+: Descriptive analysis for Education (years) based on Vote
+
+```{r, echo=FALSE, include=FALSE}
+#Split the data
+split_data_vote <- initial_split(voter, prop = 0.65, strata = Vote)
+
+#New dataframes
+vote_training <- training(split_data_vote)
+vote_test <- testing(split_data_vote)
+
+set.seed(65)
+#Folds
+vote_folds <- vfold_cv(vote_training, 
+                       v = 10, 
+                       strata = Vote)
+```
+
+```{r, echo=FALSE, include=FALSE}
+#Recipe
+vote_recipe <- 
+  # create recipe and specify formula
+  recipe(Vote ~ ., data = vote_training)  |>  
+  step_naomit(everything(), skip = TRUE) |> 
+  # normalize variables  
+  step_normalize(all_numeric_predictors())  |> 
+  # create dummy variables for nominal predictors
+  step_dummy(all_nominal_predictors())|> 
+  # remove zero variance predictors
+  step_zv(all_predictors()) |> 
+  # Resample from the minority class, so there are equal number of on-time/late
+  step_upsample(Vote, over_ratio = 1)
+
+summary(vote_recipe)
+
+glimpse(vote_training)
+vote_recipe |> 
+  prep() |> 
+  bake(vote_training) |>  
+  glimpse()
+```
+
+```{r, echo=FALSE, include=FALSE}
+#Modeling
+#Logistic Model
+vote_lr_model <- 
+  logistic_reg() |> 
+  set_engine("glm")
+
+vote_lr_wflow <- workflow() |> 
+  add_model(vote_lr_model) |> 
+  add_recipe(vote_recipe)
+vote_lr_wflow
+
+#KNN Model
+vote_knn_model <-
+  nearest_neighbor(neighbors = 7) |>
+  set_engine('kknn') |>
+  set_mode('classification')
+
+
+vote_knn_wflow <- workflow() |> 
+  add_model(vote_knn_model) |> 
+  add_recipe(vote_recipe)
+
+#Decision tree
+vote_dt_model <- decision_tree() |> 
+  set_engine('rpart') |> 
+  set_mode('classification')
+
+vote_dt_wflow <- workflow() |> 
+  add_model(vote_dt_model) |> 
+  add_recipe(vote_recipe)
+
+#Random Forests Model
+vote_rf_model <- 
+  rand_forest(trees = 100) |> 
+  set_engine("ranger", 
+             importance = "impurity"  #optional - provide info about variable importance
+  ) |> 
+  set_mode("classification")
+
+vote_rf_wflow <- workflow() |> 
+  add_model(vote_rf_model) |> 
+  add_recipe(vote_recipe)
+
+#XGBoost Model
+vote_xgb_model <- 
+  boost_tree() |>
+  set_engine("xgboost" ) |>
+  set_mode("classification") 
+
+vote_xgb_wflow <- 
+  workflow() |> 
+  add_model(vote_xgb_model) |> 
+  add_recipe(vote_recipe)
+
+#LightBGM Model
+vote_lgbm_model <- 
+  boost_tree() |>
+  set_engine("lightgbm" ) |>
+  set_mode("classification") 
+
+vote_lgbm_wflow <- 
+  workflow() |> 
+  add_model(vote_lgbm_model) |> 
+  add_recipe(vote_recipe)
+
+
+#Metrics
+vote_metrics <- metric_set(accuracy, roc_auc, sensitivity, specificity, bal_accuracy,
+                           ppv, npv)
+```
+
+```{r, echo=FALSE, include=FALSE}
+#Use the function `fit_resamples` to fit using $k$ fold cross validation
+vote_knn_res <- vote_knn_wflow |>
+  fit_resamples(
+    resamples = vote_folds, 
+    metrics = vote_metrics,
+    control = control_grid(save_pred = TRUE,
+                           parallel_over = "everything")
+  ) 
+
+vote_dt_res <- vote_dt_wflow |>
+  fit_resamples(
+    resamples = vote_folds, 
+    metrics = vote_metrics,
+    control = control_grid(save_pred = TRUE,
+                           parallel_over = "everything")
+  ) 
+
+vote_rf_res <- vote_rf_wflow |>
+  fit_resamples(
+    resamples = vote_folds, 
+    metrics = vote_metrics,
+    control = control_grid(save_pred = TRUE,
+                           parallel_over = "everything")
+  ) 
+
+vote_xgb_res <- vote_xgb_wflow |>
+  fit_resamples(
+    resamples = vote_folds, 
+    metrics = vote_metrics,
+    control = control_grid(save_pred = TRUE,
+                           parallel_over = "everything")
+  ) 
+
+
+
+vote_lgbm_res <- vote_lgbm_wflow |>
+  fit_resamples(
+    resamples = vote_folds, 
+    metrics = vote_metrics,
+    control = control_grid(save_pred = TRUE,
+                           parallel_over = "everything")
+  ) 
+
+
+vote_lr_res <- vote_lr_wflow |>
+  fit_resamples(
+    resamples = vote_folds, 
+    metrics = vote_metrics,
+    control = control_grid(save_pred = TRUE,
+                           parallel_over = "everything")
+  ) 
+
+
+all_res <- 
+  bind_rows(
+    vote_lr_res   |> collect_metrics(summarize = TRUE) |> mutate(model = "Logistic Regression"),
+    vote_knn_res  |> collect_metrics(summarize = TRUE) |> mutate(model = "KNN"),
+    vote_dt_res   |> collect_metrics(summarize = TRUE) |> mutate(model = "Decision Tree"),
+    vote_rf_res   |> collect_metrics(summarize = TRUE) |> mutate(model = "Random Forest"),
+    vote_xgb_res  |> collect_metrics(summarize = TRUE) |> mutate(model = "XGBoost"),
+    vote_lgbm_res |> collect_metrics(summarize = TRUE) |> mutate(model = "LightGBM")
+  )
+
+all_pred <- 
+  bind_rows(
+    vote_lr_res   |> collect_predictions()  |> mutate(model = "Logistic Regression"),
+    vote_knn_res  |> collect_predictions()  |> mutate(model = "KNN"),
+    vote_dt_res   |> collect_predictions()  |> mutate(model = "Decision Tree"),
+    vote_rf_res   |> collect_predictions()  |> mutate(model = "Random Forest"),
+    vote_xgb_res  |> collect_predictions()  |> mutate(model = "XGBoost"),
+    vote_lgbm_res |> collect_predictions()  |> mutate(model = "LightGBM")
+  )
+
+all_pred |> 
+  group_by(id,model) |># id contains our folds
+  roc_curve(Vote, .pred_undecided, , event_level = "second") |>
+  autoplot(aes(col = model)) + facet_wrap(facets = vars(model)) +
+  theme(legend.position = "none") + 
+  labs(title = "ROC by fold for selected algorithms")
+```
+
+To predict voter indecision, the dataset was split into 65% training and 35% testing for unbiased model evaluation. Several classification models were tested, and LightGBM was selected for its superior performance, achieving 91.5% recall (sensitivity) and 97.7% positive predictive value (PPV) \[[@fig-model-compare]\]. High recall ensures that most undecided voters are identified, making outreach efforts more effective, while high PPV ensures that flagged undecided voters are truly at risk of disengagement. The ROC AUC score of 96.2% confirms the model’s ability to differentiate between undecided and decided voters.
+
+```{r,echo=FALSE}
+#| label: fig-model-compare
+#| fig-cap: Model comparisom for summary of classification metric
+#| fig.width: 8
+#| fig.height: 6
+#| out.width: 60%
+
+#finding a model with best sensitivity
+all_res |> 
+  ggplot() + 
+  geom_col(aes(y = reorder(model, desc(model)), x = mean, fill = model)) +
+  facet_wrap(facets = vars(.metric), ncol = 3) +
+  labs(y = "model") + 
+  xlim(0,1)+
+  theme(panel.border = element_rect(colour = "black", fill=NA, linewidth=1))+
+  theme(legend.position = "none") 
+
+all_res |> 
+  group_by(.metric) |> 
+  slice_max(mean) |>  
+  select(.metric, mean, model)
+
+all_res |> filter(.metric == "roc_auc") |> slice_max(mean) |>  
+  dplyr::select(.metric, mean, model)
+
+all_res |> 
+  filter(.metric == "sensitivity") |>  slice_max(mean) |> 
+  dplyr::select(.metric, mean, model)
+
+all_res |> 
+  filter(.metric == "roc_auc", model == "LightGBM") |>
+  dplyr::select(.metric, mean, model)
+
+all_res |> 
+  filter(.metric == "sensitivity", model == "LightGBM") |>
+  dplyr::select(.metric, mean, model)
+
+  
+all_res |> 
+    filter(model == "LightGBM") |>
+    dplyr::select(.metric, mean, model)
+  
+all_res |> 
+    filter(model == "KNN") |>
+    dplyr::select(.metric, mean, model)
+```
+
+|                     | Actual: No | Actual: Yes |
+|---------------------|------------|-------------|
+| **Prediction: No**  | 1952       | 44          |
+| **Prediction: Yes** | 144        | 1361        |
+
+: Confusion Matrix for LightBGM Model (Based on Test Data)
+
+The confusion matrix \[Table 2\] shows the model correctly classified 1,952 decided voters and 1,361 undecided voters, misclassifying 144 decided voters as undecided and 44 undecided voters as decided. The overall accuracy was 94.6%, and the test ROC AUC score of 96.2% \[[@fig-rocplot]\] further validates the model’s effective differentiation between undecided and decided voters. As shown in Table 3, the model achieved a recall of 93.1%, successfully identifying most undecided voters. A precision (PPV) of 97.8% suggests that most voters flagged as undecided were correctly classified.  While specificity was slightly lower (96.9%), the trade-off is acceptable, as reducing false negatives (missed undecided voters) is a priority. The negative predictive value (NPV) of 90.4% suggests that some undecided voters were misclassified, but the model provides a well-balanced approach.
+
+| Metric                          | Estimate |
+|---------------------------------|----------|
+| Accuracy                        | 0.946    |
+| Sensitivity                     | 0.931    |
+| Specificity                     | 0.969    |
+| Positive Predictive Value (ppv) | 0.978    |
+| Negative Predictive Value (npv) | 0.904    |
+
+: Summary of Classification Metric (Based on Test Data)
+
+```{r, echo=FALSE}
+#| label: fig-rocplot
+#| fig-cap: ROC Curve for Model Accuracy (Test Data)
+
+# for lightgbm forest
+final_wflow <- vote_lgbm_wflow 
+
+final_fit <- 
+  final_wflow |>
+  last_fit(split_data_vote,
+           metrics = vote_metrics)
+
+final_pred <- final_fit |>
+  collect_predictions() 
+
+final_pred |> 
+  roc_auc(truth = Vote, .pred_undecided, event_level = "second") |> 
+  pull(.estimate)
+
+final_pred |> 
+  roc_curve(truth = Vote, .pred_undecided, event_level = "second") |> 
+  autoplot()+ annotate("text", x = 0.20, y = 1.01, label = "AUC Score 0.962", color = "blue", size = 4)
+
+final_conf <- final_pred |>
+  conf_mat(truth = Vote, .pred_class) 
+final_conf
+summary(final_conf)
+```
+
+Based on these insights, the campaign should prioritize outreach to females, non-religious individuals, and higher-educated voters, who are more likely to be undecided. Tailored messaging and engagement strategies for these groups can increase voter persuasion. LightGBM’s strong recall and precision make it a valuable tool for identifying undecided voters, enabling campaign teams to optimize engagement initiatives and enhance voter turnout.
