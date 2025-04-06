@@ -79,8 +79,7 @@ The assumptions for linear regression were checked:
   	rename(
     CO2_Emissions = EN.ATM.CO2E.PC,
     Methane = EN.ATM.METH.KT.CE,
-    Greenhouse_Gas= EN.ATM.GHGT.KT.CE,
-  )
+    Greenhouse_Gas= EN.ATM.GHGT.KT.CE)
 
 	# Check dataset structure
 	str(ds)
