@@ -11,7 +11,6 @@ This study investigates the relationship between customer balance and paperless 
 The dataset includes:
 1. **Balance**: Total customer balance in dollars (continuous variable).
 2. **Enroll**: Binary variable indicating paperless banking enrollment (“Yes” or “No”).
-3. Additional variables like **Age** and **Customer** are present but not the primary focus of the analysis.
 
 ## Exploratory Data Analysis (EDA)
 
@@ -120,7 +119,8 @@ Installation and Usage
 
 
 3.	Load the dataset:
-   sandhills <- read_csv("path_to_Sandhills.csv")
+
+		sandhills <- read_csv("path_to_sandhills.csv")
 
 
 5.	Run the analysis script to generate visualizations and model evaluations.
@@ -131,4 +131,4 @@ This project is licensed under the MIT License. See the LICENSE file for more de
 
 
 ## Acknowledgments
-- This project was completed as part of a Master’s program project at the [University of Auckland](https://www.auckland.ac.nz/en.html). Special thanks to the University of Auckland for the opportunity to undertake this project and for their invaluable support.
+- This project was completed as part of a Master’s program project at the [University of Auckland](https://www.auckland.ac.nz/en.html). Special thanks to the University of Auckland for the opportunity to undertake this project and their invaluable support.
