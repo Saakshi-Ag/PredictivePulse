@@ -14,9 +14,6 @@ This project, analyzes the superannuation plan of Emily, a 30-year-old data anal
 - [Key Findings](#key-findings)
 - [Technology Stack](#technology-stack)
 - [Usage](#usage)
-- [Results](#results)
-- [Business Applications](#business-applications)
-- [Visualizations and Interpretations](#visualizations-and-interpretations)
 - [Conclusion](#conclusion)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
@@ -26,26 +23,6 @@ The primary objectives of this project include:
 1. Evaluate Emily’s current superannuation strategy, including her investment allocations and contribution rates.
 2. Project her retirement fund's future value using a Monte Carlo simulation, considering market volatility, salary growth, inflation, and unforeseen expenses.
 3. Provide recommendations to optimize her portfolio for long-term growth while balancing risk, ensuring she meets her retirement goals (healthcare, travel, and financial security).
-
-I'll update the README file to include a new section explaining the Monte Carlo simulation and Poisson theorem, providing a brief and clear description of each method and their relevance to the project. Here's the revised README:
-
----
-
-# Retirement Planning Analysis Using Monte Carlo Simulation
-
-## Project Overview
-This project, developed as part of the BUSINFO 705 course, analyzes the superannuation plan of Emily, a 30-year-old data analyst from Auckland, to ensure her financial security in retirement. Using a Monte Carlo simulation, we forecast her retirement fund's future value, assess her current investment strategy, and provide actionable recommendations to help her achieve her NZD 2 million retirement goal over a 35-year timeline.
-
-### Team Members
-- Devansh Vijaywargiya (515481714)
-- Saakshi Agarwal (195297642)
-- Manasi Nandedkar (374284433)
-- V P Vishal (412826329)
-
-## Objectives
-- Evaluate Emily’s current superannuation strategy, including her investment allocations and contribution rates.
-- Project her retirement fund's future value using a Monte Carlo simulation, considering market volatility, salary growth, inflation, and unforeseen expenses.
-- Provide recommendations to optimize her portfolio for long-term growth while balancing risk, ensuring she meets her retirement goals (healthcare, travel, and financial security).
 
 ## Methodology
 1. **Data Collection**: Gathered historical performance data for Emily’s investment funds (SkyHigh Equity Growth Fund, Balanced Hybrid Fund, Stable Bonds Fund), salary growth trends, and inflation rates.
@@ -109,12 +86,6 @@ The Poisson theorem (or Poisson distribution) is a probability model used to pre
 
 
 ## Conclusion
-I’ll provide a conclusion for the Retirement Planning Analysis Using Monte Carlo Simulation project, following the structure you previously requested: "This project demonstrates the effectiveness of **[key methodology or technology]**. By leveraging **[specific tools or techniques]**, [stakeholders] can [achieve specific outcomes] through **[core benefit or approach]**." The conclusion will focus on the Monte Carlo simulation, the use of the Poisson theorem, and how the project helps Emily achieve her retirement goals through data-driven financial planning.
-
----
-
-### Conclusion: Retirement Planning Analysis Using Monte Carlo Simulation
-
 This project demonstrates the effectiveness of **Monte Carlo simulation for retirement planning**. By leveraging **Monte Carlo simulation with the Poisson theorem**, integrated through Python-based modeling, Emily can forecast her superannuation fund’s future value with a comprehensive understanding of uncertainties such as market volatility, salary growth, inflation, and unforeseen expenses. The simulation’s 1000 iterations, combined with the Poisson theorem’s modeling of rare events (e.g., NZD 30,000 unforeseen costs every 5 years), provide a robust projection of outcomes, revealing an average retirement balance of NZD 2.79M (pre-tax) and a 60% chance of meeting her NZD 2M goal. Recommendations such as increasing contributions to 7% and allocating 60% to growth-oriented funds in the first 10 years enhance her financial trajectory, ensuring a surplus of NZD 587,537 after expenses. Through this approach, Emily can secure her retirement goals of healthcare, travel, and financial stability via **structured, data-driven financial planning**, offering resilience against economic uncertainties and a clear path to a comfortable retirement.
 ---
 
