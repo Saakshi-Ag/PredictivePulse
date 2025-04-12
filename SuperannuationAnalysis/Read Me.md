@@ -1,11 +1,11 @@
  
-## Project Title : Superannuation Analysis Using Monte Carlo Simulation
+## Project Title: Superannuation Analysis Using Monte Carlo Simulation
 
-### Author : Saakshi Agarwal
+### Author: Saakshi Agarwal
 
 
 ## Overview
-This project, analyzes the superannuation plan of Emily, a 30-year-old data analyst from Auckland, to ensure her financial security in retirement. Using a Monte Carlo simulation, we forecast her retirement fund's future value, assess her current investment strategy, and provide actionable recommendations to help her achieve her NZD 2 million retirement goal over a 35-year timeline.
+This project analyzes the superannuation plan of Emily, a 30-year-old data analyst from Auckland, to ensure her financial security in retirement. Using a Monte Carlo simulation, we forecast her retirement fund's future value, assess her current investment strategy, and provide actionable recommendations to help her achieve her NZD 2 million retirement goal over a 35-year timeline.
 
 ## Table of Contents
 - [Overview](#overview)
@@ -24,6 +24,8 @@ The primary objectives of this project include:
 2. Project her retirement fund's future value using a Monte Carlo simulation, considering market volatility, salary growth, inflation, and unforeseen expenses.
 3. Provide recommendations to optimize her portfolio for long-term growth while balancing risk, ensuring she meets her retirement goals (healthcare, travel, and financial security).
 
+---
+
 ## Methodology
 1. **Data Collection**: Gathered historical performance data for Emily’s investment funds (SkyHigh Equity Growth Fund, Balanced Hybrid Fund, Stable Bonds Fund), salary growth trends, and inflation rates.
 2. **Monte Carlo Simulation**: Ran 1000 iterations to model potential outcomes of Emily’s superannuation fund, factoring in:
@@ -41,11 +43,15 @@ The primary objectives of this project include:
    - Raise contribution rate to 7% (from 6% combined).
    - Perform annual portfolio reviews to adapt to market changes.
 
+---
+
 ## Key Findings
 - **Current Strategy**: Emily’s conservative allocation (20% SkyHigh, 40% Balanced, 40% Stable) limits long-term growth potential.
 - **Projected Balance**: Average retirement fund of NZD 2.79M (pre-tax), NZD 2.01M (post-tax), with a 60% chance of reaching NZD 2M.
 - **Surplus**: After expenses (NZD 1.51M), Emily is projected to have NZD 587,537 remaining for financial flexibility.
 - **Recommendations**: Shift to a more aggressive allocation early on, increase contributions, and regularly rebalance the portfolio.
+
+---
 
 ## Technology Stack
 ### Monte Carlo Simulation
@@ -53,6 +59,8 @@ The Monte Carlo simulation is a computational technique used to model the probab
 
 ### Poisson Theorem
 The Poisson theorem (or Poisson distribution) is a probability model used to predict the number of times a rare event occurs within a fixed interval of time or space, given a known average rate of occurrence. In this project, we used the Poisson distribution to model the frequency of unforeseen expenses during Emily’s retirement, such as significant unplanned costs (e.g., NZD 30,000 every 5 years on average). By setting the Poisson parameter (lambda) to 0.2 (1 event every 5 years), we simulated the likelihood and timing of these rare events across the 35-year timeline, ensuring a realistic representation of unexpected financial shocks in the Monte Carlo simulation.
+
+---
 
 ## Usage
 1. **Clone the Repository**:
@@ -84,13 +92,15 @@ The Poisson theorem (or Poisson distribution) is a probability model used to pre
 
 ---
 
-
 ## Conclusion
-This project demonstrates the effectiveness of **Monte Carlo simulation for retirement planning**. By leveraging **Monte Carlo simulation with the Poisson theorem**, integrated through Python-based modeling, Emily can forecast her superannuation fund’s future value with a comprehensive understanding of uncertainties such as market volatility, salary growth, inflation, and unforeseen expenses. The simulation’s 1000 iterations, combined with the Poisson theorem’s modeling of rare events (e.g., NZD 30,000 unforeseen costs every 5 years), provide a robust projection of outcomes, revealing an average retirement balance of NZD 2.79M (pre-tax) and a 60% chance of meeting her NZD 2M goal. Recommendations such as increasing contributions to 7% and allocating 60% to growth-oriented funds in the first 10 years enhance her financial trajectory, ensuring a surplus of NZD 587,537 after expenses. Through this approach, Emily can secure her retirement goals of healthcare, travel, and financial stability via **structured, data-driven financial planning**, offering resilience against economic uncertainties and a clear path to a comfortable retirement.
+This project demonstrates the effectiveness of **Monte Carlo simulation for retirement planning**. By leveraging **Monte Carlo simulation with the Poisson theorem**, Emily can forecast her superannuation fund’s future value with a comprehensive understanding of market volatility, salary growth, inflation, and unforeseen expenses. The simulation’s 1000 iterations, combined with the Poisson theorem’s modeling of rare events (e.g., NZD 30,000 unforeseen costs every 5 years), provide a robust projection of outcomes, revealing an average retirement balance of NZD 2.79M (pre-tax) and a 60% chance of meeting her NZD 2M goal. Recommendations such as increasing contributions to 7% and allocating 60% to growth-oriented funds in the first 10 years enhance her financial trajectory, ensuring a surplus of NZD 587,537 after expenses. Through this approach, Emily can secure her retirement goals of healthcare, travel, and financial stability via **structured, data-driven financial planning**, offering resilience against economic uncertainties and a clear path to a comfortable retirement.
+
 ---
 
 ## License
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+---
 
 ## Acknowledgments
 - Special thanks to [Microsoft Azure](https://azure.microsoft.com/) for cloud-based data management solutions.
