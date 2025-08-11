@@ -104,8 +104,8 @@ Based on our findings, we propose the following strategies to reduce churn:
    - Implement proactive outreach and personalized retention offers.
                                   
 5. **Website Engagement**
-   - Increase website engagement by including limitted time offers, reward points.
-   - Implemention of gamification condepts to drive user engagemnet.  
+   - Increase website engagement by including limited-time offers, reward points.
+   - Implementation of gamification concepts to drive user engagement.  
                                           
 ## Technologies & Requirements
 ### Programming Languages & Tools
